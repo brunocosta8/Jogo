@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Flip 7 — Contador de Pontos</title>
+<meta name="description" content="Contador de pontos em direto para o jogo Flip 7. Vários dispositivos veem o mesmo placar ao mesmo tempo." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#140f20; --bg-2:#1b1430; --surface:#241c3c; --surface-2:#2e2450;
+    --line:rgba(255,255,255,.09); --line-strong:rgba(255,255,255,.16);
+    --text:#f4f0ff; --muted:#a99fc7; --muted-2:#7d739c;
+    --gold:#ffc53d; --gold-soft:rgba(255,197,61,.14);
+    --coral:#ff5d84; --coral-soft:rgba(255,93,132,.14);
+    --live:#34d399; --live-soft:rgba(52,217,153,.16);
+    --radius:18px; --radius-sm:12px; --shadow:0 22px 50px -24px rgba(0,0,0,.75);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    min-height:100dvh;
+    background:
+      radial-gradient(1100px 600px at 82% -8%, rgba(255,93,132,.16), transparent 55%),
+      radial-gradient(900px 620px at 8% 8%, rgba(255,197,61,.12), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+    padding:22px 16px calc(env(safe-area-inset-bottom) + 120px);
+  }
+  .wrap{max-width:720px;margin:0 auto}
+
+  .brand{display:flex;align-items:center;gap:12px;margin:4px 2px 22px}
+  .pip{width:46px;height:46px;flex:none;display:grid;place-items:center;border-radius:13px;
+    background:linear-gradient(150deg,var(--gold),#ff9d3d);color:#241300;
+    font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:26px;line-height:1;
+    box-shadow:0 10px 24px -10px rgba(255,157,61,.7);transform:rotate(-6deg)}
+  .brand h1{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;
+    font-size:clamp(24px,6vw,32px);letter-spacing:-.02em;margin:0;line-height:1}
+  .brand p{margin:2px 0 0;color:var(--muted);font-size:13px}
+
+  .card{background:linear-gradient(180deg,var(--surface),var(--bg-2));
+    border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .pad{padding:22px}
+  .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted-2);font-weight:600;margin:0 0 6px}
+  h2.screen-title{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;
+    font-size:clamp(22px,5.5vw,28px);letter-spacing:-.02em;margin:0 0 20px}
+
+  button{font-family:inherit;cursor:pointer;border:none;color:inherit}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:14px 20px;border-radius:14px;font-weight:700;font-size:16px;
+    transition:transform .08s ease, filter .15s ease, background .15s ease;border:1px solid transparent}
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:linear-gradient(150deg,var(--gold),#ff9d3d);color:#241300}
+  .btn-primary:hover{filter:brightness(1.05)}
+  .btn-ghost{background:rgba(255,255,255,.04);border-color:var(--line-strong);color:var(--text)}
+  .btn-ghost:hover{background:rgba(255,255,255,.08)}
+  .btn-block{width:100%}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none;filter:none}
+  .stack>*+*{margin-top:12px}
+
+  .stepper{display:flex;align-items:center;justify-content:center;gap:22px;margin:6px 0 28px}
+  .step-btn{width:64px;height:64px;border-radius:50%;font-size:30px;line-height:1;
+    background:var(--surface-2);border:1px solid var(--line-strong);color:var(--text);
+    display:grid;place-items:center;transition:transform .08s, background .15s}
+  .step-btn:hover{background:#39306a}
+  .step-btn:active{transform:scale(.94)}
+  .step-count{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:76px;line-height:1;
+    min-width:120px;text-align:center;font-variant-numeric:tabular-nums}
+  .step-label{text-align:center;color:var(--muted);margin:-14px 0 26px;font-size:14px}
+
+  .name-row{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .name-badge{width:34px;height:34px;flex:none;border-radius:9px;display:grid;place-items:center;
+    background:var(--gold-soft);color:var(--gold);font-weight:700;font-size:14px}
+  input[type="text"].name-input, input.round-input, input.hist-input, input.target-input, input.code-input{
+    background:var(--bg);border:1px solid var(--line-strong);color:var(--text);border-radius:var(--radius-sm);
+    font-family:inherit;font-size:16px;padding:12px 14px;width:100%;transition:border-color .15s, box-shadow .15s}
+  input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-soft)}
+  input::placeholder{color:var(--muted-2)}
+
+  .row-actions{display:flex;gap:12px;margin-top:22px}
+  .back-link{background:none;border:none;color:var(--muted);font-size:14px;padding:8px 2px;text-align:left}
+  .back-link:hover{color:var(--text)}
+
+  .code-input{text-align:center;letter-spacing:.4em;font-weight:800;font-size:30px;text-transform:uppercase;
+    font-family:"Bricolage Grotesque",sans-serif;padding:16px 14px}
+
+  .banner{margin-top:16px;padding:12px 14px;border-radius:var(--radius-sm);font-size:13px;line-height:1.45;
+    background:var(--coral-soft);border:1px solid rgba(255,93,132,.28);color:#ffd0dd}
+  .banner a{color:var(--gold)}
+
+  /* barra de código (anfitrião) */
+  .sharebar{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px}
+  .sharebar .left .lbl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2);font-weight:600}
+  .sharebar .code{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:26px;letter-spacing:.18em;line-height:1.1}
+  .copy-btn{background:var(--surface-2);border:1px solid var(--line-strong);border-radius:12px;color:var(--text);
+    padding:10px 14px;font-weight:600;font-size:14px;flex:none}
+  .copy-btn:hover{background:#39306a}
+
+  /* estado em direto (convidado) */
+  .livebar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+  .live{display:inline-flex;align-items:center;gap:8px;background:var(--live-soft);border:1px solid rgba(52,217,153,.4);
+    color:var(--live);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:700}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--live);box-shadow:0 0 0 0 rgba(52,217,153,.6);animation:pulse 1.8s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,217,153,.5)}70%{box-shadow:0 0 0 8px rgba(52,217,153,0)}100%{box-shadow:0 0 0 0 rgba(52,217,153,0)}}
+  .livebar .code-mini{color:var(--muted);font-size:13px}
+  .livebar .code-mini b{color:var(--text);letter-spacing:.12em}
+
+  .gamebar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:2px 2px 16px}
+  .round-chip{display:inline-flex;align-items:baseline;gap:8px;background:var(--surface);
+    border:1px solid var(--line);border-radius:999px;padding:8px 16px}
+  .round-chip b{font-family:"Bricolage Grotesque",sans-serif;font-size:20px;font-weight:800}
+  .round-chip span{color:var(--muted);font-size:13px}
+  .meta-box{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:13px}
+  .meta-box .target-input{width:74px;text-align:center;padding:8px 6px;font-weight:700;font-size:15px}
+  .meta-static{color:var(--muted);font-size:13px}
+  .meta-static b{color:var(--text)}
+
+  .players{display:flex;flex-direction:column;gap:12px}
+  .player{position:relative;overflow:hidden;background:linear-gradient(180deg,var(--surface),var(--bg-2));
+    border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;display:grid;
+    grid-template-columns:1fr auto;grid-template-areas:"id total" "input input";gap:14px 16px;align-items:center}
+  .player.readonly{grid-template-areas:"id total"}
+  .player.leader{border-color:rgba(255,197,61,.55);box-shadow:0 0 0 1px rgba(255,197,61,.25),var(--shadow)}
+  .player .watermark{position:absolute;right:-14px;top:-30px;font-family:"Bricolage Grotesque",sans-serif;
+    font-weight:800;font-size:150px;line-height:1;color:rgba(255,255,255,.03);pointer-events:none}
+  .p-id{grid-area:id;display:flex;align-items:center;gap:10px;min-width:0}
+  .p-name{font-weight:700;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .crown{color:var(--gold);font-size:16px;flex:none}
+  .p-sub{color:var(--muted-2);font-size:12px;margin-top:1px}
+  .goal-tag{display:inline-block;margin-top:4px;font-size:11px;font-weight:700;letter-spacing:.04em;
+    color:#241300;background:var(--gold);padding:2px 8px;border-radius:999px}
+  .p-total{grid-area:total;text-align:right}
+  .total-num{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:42px;line-height:1;font-variant-numeric:tabular-nums}
+  .total-num.flip{animation:flip .5s ease}
+  @keyframes flip{0%{transform:rotateX(0);color:var(--coral)}45%{transform:rotateX(90deg)}55%{transform:rotateX(-90deg)}100%{transform:rotateX(0)}}
+  .prov{margin-top:3px;height:18px}
+  .prov .chip{display:none;font-size:13px;font-weight:700;color:var(--coral);background:var(--coral-soft);
+    padding:2px 9px;border-radius:999px;font-variant-numeric:tabular-nums}
+  .prov.show .chip{display:inline-block}
+  .p-input{grid-area:input;display:flex;align-items:center;gap:10px}
+  .p-input label{color:var(--muted);font-size:13px;flex:none}
+  .round-input{text-align:center;font-weight:700;font-variant-numeric:tabular-nums;max-width:120px}
+  .round-input:focus{border-color:var(--coral);box-shadow:0 0 0 3px var(--coral-soft)}
+
+  details.hist{margin-top:16px;border:1px solid var(--line);border-radius:var(--radius);background:var(--bg-2)}
+  details.hist>summary{list-style:none;cursor:pointer;padding:14px 18px;font-weight:600;color:var(--muted);
+    display:flex;justify-content:space-between;align-items:center}
+  details.hist>summary::-webkit-details-marker{display:none}
+  details.hist>summary .arrow{transition:transform .2s}
+  details.hist[open]>summary .arrow{transform:rotate(180deg)}
+  .hist-scroll{overflow-x:auto;padding:0 6px 6px}
+  table.hist-table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+  table.hist-table th,table.hist-table td{padding:6px 8px;text-align:center;border-bottom:1px solid var(--line)}
+  table.hist-table th{color:var(--muted-2);font-weight:600;font-size:12px}
+  table.hist-table td.rlabel,table.hist-table th.rlabel{color:var(--muted-2);text-align:left;font-weight:600}
+  table.hist-table tfoot td{font-weight:800;color:var(--gold);border-bottom:none;padding-top:10px}
+  .hist-input{padding:6px 4px;text-align:center;font-size:14px;min-width:52px;background:var(--surface)}
+  .hist-cell{min-width:44px}
+  .hist-empty{color:var(--muted-2);padding:12px 18px;font-size:14px}
+
+  .commitbar{position:fixed;left:0;right:0;bottom:0;z-index:20;
+    padding:14px 16px calc(env(safe-area-inset-bottom) + 14px);
+    background:linear-gradient(180deg,rgba(20,15,32,0),var(--bg) 42%)}
+  .commitbar .inner{max-width:720px;margin:0 auto;display:flex;gap:12px}
+  .commitbar .btn-primary{flex:1;font-size:17px;padding:16px}
+  .menu-btn{width:56px;flex:none;background:var(--surface-2);border:1px solid var(--line-strong);
+    border-radius:14px;font-size:22px;color:var(--text);display:grid;place-items:center}
+  .menu-btn:hover{background:#39306a}
+  .menu{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom) + 82px);z-index:30;
+    background:var(--surface);border:1px solid var(--line-strong);border-radius:14px;box-shadow:var(--shadow);
+    padding:6px;min-width:220px;display:none}
+  .menu.open{display:block}
+  .menu button{display:block;width:100%;text-align:left;background:none;border:none;color:var(--text);
+    padding:11px 14px;border-radius:9px;font-size:15px}
+  .menu button:hover{background:rgba(255,255,255,.06)}
+  .menu button.danger{color:var(--coral)}
+  .menu-sep{height:1px;background:var(--line);margin:4px 6px}
+
+  .hint{color:var(--muted);font-size:13px;margin:14px 2px 0;text-align:center}
+  .leave-link{display:block;margin:18px auto 0;background:none;border:none;color:var(--muted-2);font-size:14px}
+  .leave-link:hover{color:var(--text)}
+  @media (max-width:420px){.total-num{font-size:38px}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <div class="pip">7</div>
+    <div><h1>Flip 7</h1><p>Contador de pontos</p></div>
+  </div>
+  <main id="app"></main>
+</div>
+
+<div class="commitbar" id="commitbar" style="display:none">
+  <div class="inner">
+    <button class="btn btn-primary" id="commit-btn">Oficializar ronda</button>
+    <button class="menu-btn" id="menu-btn" aria-label="Mais opções">⋯</button>
+  </div>
+</div>
+<div class="menu" id="menu">
+  <button id="m-undo">↩︎ Anular última ronda</button>
+  <div class="menu-sep"></div>
+  <button id="m-new" class="danger">＋ Novo jogo</button>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   CONFIGURAÇÃO DA SINCRONIZAÇÃO (Firebase Realtime Database)
+   Cola aqui os dados do teu projeto Firebase (ver README).
+   Enquanto estiver vazio, a app funciona só neste dispositivo.
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyCBqVqG0qDZGdXupSHDTYEG5LPU1z0BxRk",
+  authDomain: "jogo-18281.firebaseapp.com",
+  databaseURL: "https://jogo-18281-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "jogo-18281",
+  appId: "1:154602381927:web:6ecea719fa258e9fa32ac2"
+};
+const SYNC_CONFIGURED = !!(firebaseConfig.databaseURL && firebaseConfig.apiKey);
+
+const KEY = "flip7-scorekeeper-v2";
+const app = document.getElementById("app");
+const commitbar = document.getElementById("commitbar");
+const menu = document.getElementById("menu");
+
+const intOr0 = v => { const n = parseInt(v,10); return Number.isFinite(n) ? n : 0; };
+const total = p => p.rounds.reduce((a,b)=>a+b,0);
+
+function defaultState(){
+  return { phase:"home", role:null, code:null, count:3, target:200, names:[], players:[], pending:[] };
+}
+let state = load() || defaultState();
+function load(){ try{ return JSON.parse(localStorage.getItem(KEY)); }catch(e){ return null; } }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+
+/* ---------------- sincronização ---------------- */
+const SYNC = { clientId: Math.random().toString(36).slice(2), tried:false, on:false, db:null, fn:null, unsub:null };
+
+async function ensureSync(){
+  if(SYNC.tried) return SYNC.on;
+  SYNC.tried = true;
+  if(!SYNC_CONFIGURED) return false;
+  try{
+    const appMod = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+    const dbMod  = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js");
+    const fbApp = appMod.initializeApp(firebaseConfig);
+    SYNC.db = dbMod.getDatabase(fbApp);
+    SYNC.fn = dbMod;
+    SYNC.on = true;
+  }catch(e){ console.warn("Sincronização indisponível:", e); SYNC.on = false; }
+  return SYNC.on;
+}
+function gameRef(){ return SYNC.fn.ref(SYNC.db, "games/" + state.code); }
+function pushState(){
+  if(!(SYNC.on && state.code && state.role === "host")) return;
+  const data = { target: state.target, players: state.players,
+                 origin: SYNC.clientId, updatedAt: Date.now() };
+  SYNC.fn.set(gameRef(), data).catch(e=>console.warn("push falhou:", e));
+}
+function subscribe(){
+  if(!(SYNC.on && state.code)) return;
+  if(SYNC.unsub){ SYNC.unsub(); SYNC.unsub = null; }
+  SYNC.unsub = SYNC.fn.onValue(gameRef(), snap=>{
+    const data = snap.val();
+    if(!data){ if(state.role === "guest") gameGone(); return; }
+    if(data.origin === SYNC.clientId) return;        // ignora o próprio eco
+    state.players = data.players || [];
+    state.target  = data.target  || 200;
+    save(); render();
+  });
+}
+function gameGone(){
+  alert("O anfitrião terminou este jogo.");
+  leaveGame();
+}
+function genCode(){
+  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = "";
+  for(let i=0;i<4;i++) s += A[Math.floor(Math.random()*A.length)];
+  return s;
+}
+function shareLink(){ return location.origin + location.pathname + "#" + state.code; }
+
+/* ---------------- render dispatch ---------------- */
+function render(){
+  menu.classList.remove("open");
+  if(state.phase === "home")        return renderHome();
+  if(state.phase === "setup-count") return renderCount();
+  if(state.phase === "setup-names") return renderNames();
+  if(state.phase === "join")        return renderJoin();
+  return renderGame();
+}
+
+/* ---------------- ecrã inicial ---------------- */
+function renderHome(){
+  commitbar.style.display = "none";
+  const localNote = SYNC_CONFIGURED ? "" : `
+    <div class="banner">Sincronização ainda não configurada — o jogo funciona só neste dispositivo.
+    Para vários telemóveis verem em direto, segue o <b>README</b> (Firebase).</div>`;
+  const joinBtn = SYNC_CONFIGURED ? `<button class="btn btn-ghost btn-block" id="home-join">Entrar com código</button>` : "";
+  app.innerHTML = `
+    <section class="card pad">
+      <p class="eyebrow">Contador de pontos</p>
+      <h2 class="screen-title">Vamos jogar?</h2>
+      <div class="stack">
+        <button class="btn btn-primary btn-block" id="home-new">Novo jogo</button>
+        ${joinBtn}
+      </div>
+      ${localNote}
+    </section>`;
+  document.getElementById("home-new").onclick = ()=>{ state.phase="setup-count"; save(); render(); };
+  const j = document.getElementById("home-join");
+  if(j) j.onclick = ()=>{ state.phase="join"; save(); render(); };
+}
+
+/* ---------------- entrar com código ---------------- */
+function renderJoin(){
+  commitbar.style.display = "none";
+  app.innerHTML = `
+    <section class="card pad">
+      <p class="eyebrow">Ver em direto</p>
+      <h2 class="screen-title">Entrar num jogo</h2>
+      <label class="eyebrow" for="code">Código do jogo</label>
+      <input class="code-input" id="code" maxlength="4" placeholder="ABCD" autocomplete="off" autocapitalize="characters" />
+      <div class="row-actions"><button class="btn btn-primary btn-block" id="join-go">Entrar</button></div>
+      <button class="back-link" id="back">← Voltar</button>
+    </section>`;
+  const input = document.getElementById("code");
+  input.oninput = e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,""); };
+  input.onkeydown = e => { if(e.key==="Enter") go(); };
+  document.getElementById("join-go").onclick = go;
+  document.getElementById("back").onclick = ()=>{ state.phase="home"; save(); render(); };
+  async function go(){
+    const code = input.value.trim().toUpperCase();
+    if(code.length < 4){ input.focus(); return; }
+    const btn = document.getElementById("join-go");
+    btn.disabled = true; btn.textContent = "A ligar…";
+    const ok = await ensureSync();
+    if(!ok){ alert("Sincronização não configurada nesta app."); btn.disabled=false; btn.textContent="Entrar"; return; }
+    try{
+      const snap = await SYNC.fn.get(SYNC.fn.ref(SYNC.db, "games/"+code));
+      if(!snap.exists()){ alert("Não encontrei nenhum jogo com o código "+code+"."); btn.disabled=false; btn.textContent="Entrar"; return; }
+      const data = snap.val();
+      state.role="guest"; state.code=code; state.pending=[];
+      state.players=data.players||[]; state.target=data.target||200;
+      state.phase="game"; save(); subscribe(); render();
+      history.replaceState(null,"","#"+code);
+    }catch(e){ alert("Não consegui ligar. Tenta outra vez."); btn.disabled=false; btn.textContent="Entrar"; }
+  }
+}
+
+/* ---------------- ecrã 1: nº de jogadores ---------------- */
+function renderCount(){
+  commitbar.style.display = "none";
+  app.innerHTML = `
+    <section class="card pad">
+      <p class="eyebrow">Novo jogo</p>
+      <h2 class="screen-title">Quantos jogadores?</h2>
+      <div class="stepper">
+        <button class="step-btn" id="minus" aria-label="Menos um jogador">−</button>
+        <div class="step-count" id="count">${state.count}</div>
+        <button class="step-btn" id="plus" aria-label="Mais um jogador">+</button>
+      </div>
+      <p class="step-label">Entre 2 e 8 jogadores</p>
+      <button class="btn btn-primary btn-block" id="next">Continuar</button>
+      <button class="back-link" id="back">← Voltar</button>
+    </section>`;
+  const set = d => { state.count = Math.max(2, Math.min(8, state.count + d)); save(); document.getElementById("count").textContent = state.count; };
+  document.getElementById("minus").onclick = ()=>set(-1);
+  document.getElementById("plus").onclick  = ()=>set(1);
+  document.getElementById("back").onclick  = ()=>{ state.phase="home"; save(); render(); };
+  document.getElementById("next").onclick  = ()=>{
+    const prev = state.names || [];
+    state.names = Array.from({length:state.count}, (_,i)=> prev[i] || "");
+    state.phase = "setup-names"; save(); render();
+  };
+}
+
+/* ---------------- ecrã 2: nomes ---------------- */
+function renderNames(){
+  commitbar.style.display = "none";
+  const rows = state.names.map((n,i)=>`
+    <div class="name-row">
+      <div class="name-badge">${i+1}</div>
+      <input type="text" class="name-input" data-i="${i}" value="${escAttr(n)}"
+             placeholder="Jogador ${i+1}" maxlength="18" autocomplete="off" />
+    </div>`).join("");
+  app.innerHTML = `
+    <section class="card pad">
+      <p class="eyebrow">Novo jogo · ${state.count} jogadores</p>
+      <h2 class="screen-title">Nomes dos jogadores</h2>
+      ${rows}
+      <div class="row-actions"><button class="btn btn-primary btn-block" id="start">Começar jogo</button></div>
+      <button class="back-link" id="back">← Mudar número de jogadores</button>
+    </section>`;
+  app.querySelectorAll(".name-input").forEach(inp=>{
+    inp.oninput = e => { state.names[+e.target.dataset.i] = e.target.value; save(); };
+    inp.onkeydown = e => {
+      if(e.key !== "Enter") return;
+      const i = +e.target.dataset.i;
+      const nxt = app.querySelector(`.name-input[data-i="${i+1}"]`);
+      if(nxt) nxt.focus(); else startGame();
+    };
+  });
+  document.getElementById("start").onclick = startGame;
+  document.getElementById("back").onclick = ()=>{ state.phase="setup-count"; save(); render(); };
+}
+
+async function startGame(){
+  state.players = state.names.map((n,i)=>({ name:(n.trim() || `Jogador ${i+1}`), rounds:[] }));
+  state.pending = state.players.map(()=> "");
+  state.role = "host";
+  const ok = await ensureSync();
+  state.code = ok ? genCode() : null;
+  state.phase = "game"; save();
+  if(ok){ pushState(); subscribe(); history.replaceState(null,"","#"+state.code); }
+  render();
+}
+
+/* ---------------- ecrã 3: jogo ---------------- */
+function renderGame(){
+  const isHost = state.role === "host";
+  commitbar.style.display = isHost ? "block" : "none";
+
+  const roundNo = (state.players[0]?.rounds.length || 0) + 1;
+  const totals = state.players.map(total);
+  const max = totals.length ? Math.max(...totals) : 0;
+  const someoneWon = totals.some(t => t >= state.target);
+
+  let topBar = "";
+  if(isHost && state.code){
+    topBar = `
+      <div class="sharebar">
+        <div class="left"><div class="lbl">Código do jogo</div><div class="code">${state.code}</div></div>
+        <button class="copy-btn" id="copy">Copiar link</button>
+      </div>`;
+  }else if(!isHost){
+    topBar = `
+      <div class="livebar">
+        <span class="live"><span class="dot"></span> Em direto</span>
+        <span class="code-mini">Código <b>${state.code||""}</b></span>
+      </div>`;
+  }
+
+  const cards = state.players.map((p,i)=>{
+    const t = totals[i];
+    const isLeader = t === max && t > 0;
+    const reached = t >= state.target;
+    const inputBlock = isHost ? `
+        <div class="p-input">
+          <label for="ri-${i}">Ronda ${roundNo}</label>
+          <input class="round-input" id="ri-${i}" data-i="${i}" type="number"
+                 inputmode="numeric" placeholder="—" value="${escAttr(state.pending[i] ?? "")}" />
+        </div>` : "";
+    return `
+      <div class="player ${isLeader?"leader":""} ${isHost?"":"readonly"}" data-i="${i}">
+        <div class="watermark">${i+1}</div>
+        <div class="p-id"><div style="min-width:0">
+          <div class="p-name">${isLeader ? '<span class="crown">♛</span> ' : ""}${escHtml(p.name)}</div>
+          <div class="p-sub">${p.rounds.length} ${p.rounds.length===1?"ronda":"rondas"} jogadas</div>
+          ${reached ? '<span class="goal-tag">Chegou à meta</span>' : ""}
+        </div></div>
+        <div class="p-total">
+          <div class="total-num" data-total="${i}">${t}</div>
+          <div class="prov" data-prov="${i}"><span class="chip"></span></div>
+        </div>
+        ${inputBlock}
+      </div>`;
+  }).join("");
+
+  const metaControl = isHost
+    ? `<label class="meta-box">Meta <input class="target-input" id="target" type="number" inputmode="numeric" value="${state.target}" /></label>`
+    : `<span class="meta-static">Meta <b>${state.target}</b></span>`;
+
+  const footer = isHost
+    ? `<p class="hint">Escreve a pontuação da ronda para ver o total provisório. Só conta depois de <b>oficializar</b>.</p>`
+    : `<p class="hint">Só o anfitrião marca os pontos. O placar atualiza-se sozinho.</p>
+       <button class="leave-link" id="leave">Sair do jogo</button>`;
+
+  app.innerHTML = `
+    ${topBar}
+    <div class="gamebar">
+      <div class="round-chip"><span>Ronda</span><b>${roundNo}</b></div>
+      ${metaControl}
+    </div>
+    <div class="players">${cards}</div>
+    ${renderHistory(isHost)}
+    ${footer}`;
+
+  if(isHost){
+    app.querySelectorAll(".round-input").forEach(inp=>{
+      inp.oninput = e => { const i=+e.target.dataset.i; state.pending[i]=e.target.value; save(); updateProvisional(i); };
+      updateProvisional(+inp.dataset.i);
+    });
+    const tgt = document.getElementById("target");
+    if(tgt) tgt.onchange = e => { const v=parseInt(e.target.value,10); state.target = (Number.isFinite(v)&&v>0)?v:200; save(); pushState(); renderGame(); };
+    app.querySelectorAll(".hist-input").forEach(inp=>{
+      inp.onchange = e => { const pi=+e.target.dataset.p, ri=+e.target.dataset.r; state.players[pi].rounds[ri]=intOr0(e.target.value); save(); pushState(); renderGame(); };
+    });
+    const cp = document.getElementById("copy");
+    if(cp) cp.onclick = async ()=>{ try{ await navigator.clipboard.writeText(shareLink()); cp.textContent="Copiado ✓"; setTimeout(()=>cp.textContent="Copiar link",1500);}catch(e){ prompt("Copia o link:", shareLink()); } };
+    document.getElementById("commit-btn").disabled = false;
+  }else{
+    const lv = document.getElementById("leave");
+    if(lv) lv.onclick = leaveGame;
+  }
+
+  if(someoneWon && totals.length){
+    const winner = state.players[totals.indexOf(max)];
+    const h = app.querySelector(".hint");
+    if(h) h.innerHTML = `🏆 <b>${escHtml(winner.name)}</b> chegou à meta com <b>${max}</b> pontos.`;
+  }
+}
+
+function updateProvisional(i){
+  const raw = state.pending[i];
+  const wrap = app.querySelector(`[data-prov="${i}"]`);
+  if(!wrap) return;
+  const chip = wrap.querySelector(".chip");
+  if(raw==="" || raw===undefined || raw===null){ wrap.classList.remove("show"); return; }
+  const add = intOr0(raw);
+  chip.textContent = `${add>=0?"+":""}${add} → ${total(state.players[i])+add}`;
+  wrap.classList.add("show");
+}
+
+function renderHistory(editable){
+  const played = state.players[0]?.rounds.length || 0;
+  if(!played){
+    return `<details class="hist"><summary>Histórico <span class="arrow">⌄</span></summary>
+      <div class="hist-empty">Ainda não há rondas oficializadas.</div></details>`;
+  }
+  const head = `<th class="rlabel">Ronda</th>` + state.players.map(p=>`<th>${escHtml(p.name)}</th>`).join("");
+  let body = "";
+  for(let r=0;r<played;r++){
+    body += `<tr><td class="rlabel">${r+1}</td>` + state.players.map((p,pi)=>{
+      const v = p.rounds[r];
+      return editable
+        ? `<td class="hist-cell"><input class="hist-input" type="number" inputmode="numeric" data-p="${pi}" data-r="${r}" value="${v}" /></td>`
+        : `<td class="hist-cell">${v}</td>`;
+    }).join("") + `</tr>`;
+  }
+  const foot = `<td class="rlabel">Total</td>` + state.players.map(p=>`<td>${total(p)}</td>`).join("");
+  return `<details class="hist"><summary>Histórico · ${played} ${played===1?"ronda":"rondas"} <span class="arrow">⌄</span></summary>
+    <div class="hist-scroll"><table class="hist-table">
+      <thead><tr>${head}</tr></thead><tbody>${body}</tbody><tfoot><tr>${foot}</tr></tfoot>
+    </table></div></details>`;
+}
+
+/* ---------------- ações (só anfitrião) ---------------- */
+function commitRound(){
+  state.players.forEach((p,i)=> p.rounds.push(intOr0(state.pending[i])));
+  state.pending = state.players.map(()=> "");
+  save(); pushState(); renderGame();
+  app.querySelectorAll(".total-num").forEach(el=>{
+    el.classList.add("flip");
+    el.addEventListener("animationend", ()=>el.classList.remove("flip"), {once:true});
+  });
+}
+function undoRound(){
+  if(!(state.players[0]?.rounds.length)) return;
+  state.players.forEach(p=>p.rounds.pop());
+  save(); pushState(); renderGame();
+}
+function newGame(){
+  if(!confirm("Começar um jogo novo? A pontuação atual é apagada.")) return;
+  if(SYNC.on && state.code && state.role==="host"){ SYNC.fn.set(gameRef(), null).catch(()=>{}); }
+  if(SYNC.unsub){ SYNC.unsub(); SYNC.unsub=null; }
+  history.replaceState(null,"",location.pathname);
+  state = defaultState(); save(); render();
+}
+function leaveGame(){
+  if(SYNC.unsub){ SYNC.unsub(); SYNC.unsub=null; }
+  history.replaceState(null,"",location.pathname);
+  state = defaultState(); save(); render();
+}
+
+document.getElementById("commit-btn").onclick = commitRound;
+document.getElementById("menu-btn").onclick = e => { e.stopPropagation(); menu.classList.toggle("open"); };
+document.getElementById("m-undo").onclick = ()=>{ menu.classList.remove("open"); undoRound(); };
+document.getElementById("m-new").onclick  = ()=>{ menu.classList.remove("open"); newGame(); };
+document.addEventListener("click", e => { if(!menu.contains(e.target)) menu.classList.remove("open"); });
+
+function escHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function escAttr(s){ return escHtml(s); }
+
+/* ---------------- arranque ---------------- */
+(async function init(){
+  const hashCode = (location.hash || "").replace("#","").toUpperCase().replace(/[^A-Z0-9]/g,"");
+
+  // link partilhado: entrar como convidado (a menos que já sejas o anfitrião desse código)
+  if(hashCode && SYNC_CONFIGURED && !(state.phase==="game" && state.code===hashCode)){
+    const ok = await ensureSync();
+    if(ok){
+      try{
+        const snap = await SYNC.fn.get(SYNC.fn.ref(SYNC.db,"games/"+hashCode));
+        if(snap.exists()){
+          const data = snap.val();
+          state = defaultState();
+          state.role="guest"; state.code=hashCode; state.players=data.players||[]; state.target=data.target||200;
+          state.phase="game"; save(); subscribe(); return render();
+        }
+      }catch(e){ /* segue para o estado guardado */ }
+    }
+  }
+
+  // retomar um jogo já em curso
+  if(state.phase==="game" && state.code && SYNC_CONFIGURED){
+    const ok = await ensureSync();
+    if(ok){ subscribe(); if(state.role==="host") pushState(); }
+  }
+  render();
+})();
+</script>
+</body>
+</html>
