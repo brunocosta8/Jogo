@@ -232,12 +232,43 @@ const commitbar = document.getElementById("commitbar");
 const menu = document.getElementById("menu");
 
 const intOr0 = v => { const n = parseInt(v,10); return Number.isFinite(n) ? n : 0; };
-const total = p => p.rounds.reduce((a,b)=>a+b,0);
+const total = p => toArr(p && p.rounds).reduce((a,b)=>a+intOr0(b),0);
+
+// O Firebase RTDB não guarda arrays vazios (viram null) e por vezes devolve
+// arrays como objetos {0:..,1:..}. Isto normaliza tudo de volta para arrays.
+function toArr(x){
+  if(Array.isArray(x)) return x;
+  if(x && typeof x === "object") return Object.keys(x).sort((a,b)=>a-b).map(k=>x[k]);
+  return [];
+}
+function sanitizePlayers(arr){
+  return toArr(arr).map((p,i)=>({
+    name: (p && typeof p.name==="string" && p.name.trim()) ? p.name : `Jogador ${i+1}`,
+    rounds: toArr(p && p.rounds).map(n=>intOr0(n))
+  }));
+}
+function safeTarget(v, fallback){ return (Number.isFinite(v) && v>0) ? v : (fallback||200); }
 
 function defaultState(){
   return { phase:"home", role:null, code:null, count:3, target:200, names:[], players:[], pending:[] };
 }
-let state = load() || defaultState();
+function normalize(s){
+  if(!s || typeof s!=="object" || Array.isArray(s)) return null;
+  const out = defaultState();
+  out.phase   = typeof s.phase==="string" ? s.phase : "home";
+  out.role    = (s.role==="host"||s.role==="guest") ? s.role : null;
+  out.code    = typeof s.code==="string" ? s.code : null;
+  out.count   = Number.isFinite(s.count) ? Math.max(2,Math.min(8,s.count)) : 3;
+  out.target  = safeTarget(s.target);
+  out.names   = toArr(s.names).map(n=> typeof n==="string" ? n : "");
+  out.players = sanitizePlayers(s.players);
+  out.pending = toArr(s.pending).map(v=> v==null ? "" : String(v));
+  while(out.pending.length < out.players.length) out.pending.push("");
+  out.pending.length = out.players.length;
+  if(out.phase==="game" && out.players.length===0){ out.phase="home"; out.role=null; out.code=null; }
+  return out;
+}
+let state = normalize(load()) || defaultState();
 function load(){ try{ return JSON.parse(localStorage.getItem(KEY)); }catch(e){ return null; } }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
 
@@ -291,8 +322,11 @@ function subscribe(){
     const data = snap.val();
     if(!data){ if(state.role === "guest") gameGone(); return; }
     if(data.origin === SYNC.clientId) return;        // ignora o próprio eco
-    state.players = data.players || [];
-    state.target  = data.target  || 200;
+    state.players = sanitizePlayers(data.players);
+    state.target  = safeTarget(data.target, state.target);
+    if(!Array.isArray(state.pending)) state.pending = [];
+    while(state.pending.length < state.players.length) state.pending.push("");
+    state.pending.length = state.players.length;
     save(); render();
   });
 }
@@ -373,7 +407,7 @@ function renderJoin(){
       if(!snap.exists()){ alert("Não encontrei nenhum jogo com o código "+code+"."); btn.disabled=false; btn.textContent="Entrar"; return; }
       const data = snap.val();
       state.role="guest"; state.code=code; state.pending=[];
-      state.players=data.players||[]; state.target=data.target||200;
+      state.players=sanitizePlayers(data.players); state.target=safeTarget(data.target);
       state.phase="game"; save(); subscribe(); render();
       history.replaceState(null,"","#"+code);
     }catch(e){ alert("Não consegui ligar. Tenta outra vez."); btn.disabled=false; btn.textContent="Entrar"; }
@@ -639,7 +673,7 @@ async function bootSync(){
         const data = snap.val();
         state = defaultState();
         state.role="guest"; state.code=hashCode;
-        state.players=data.players||[]; state.target=data.target||200;
+        state.players=sanitizePlayers(data.players); state.target=safeTarget(data.target);
         state.phase="game"; save(); subscribe(); render(); return;
       }
     }catch(e){ console.warn(e); }
