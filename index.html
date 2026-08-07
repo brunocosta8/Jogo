@@ -230,6 +230,7 @@ const KEY = "flip7-scorekeeper-v2";
 const app = document.getElementById("app");
 const commitbar = document.getElementById("commitbar");
 const menu = document.getElementById("menu");
+console.log("%cFlip 7 — build r6 (auto-recupera estado inválido)", "color:#ffc53d;font-weight:bold");
 
 const intOr0 = v => { const n = parseInt(v,10); return Number.isFinite(n) ? n : 0; };
 const total = p => toArr(p && p.rounds).reduce((a,b)=>a+intOr0(b),0);
@@ -650,10 +651,25 @@ function escAttr(s){ return escHtml(s); }
 
 /* ---------------- arranque ---------------- */
 function init(){
+  let ok = false;
   // 1) desenha JÁ a partir do estado local — o primeiro ecrã nunca espera pela rede
-  try{ render(); }
-  catch(e){ app.innerHTML = '<section class="card pad">Ocorreu um erro a abrir a app. Atualiza a página.</section>'; console.error(e); }
-  // 2) liga a sincronização em segundo plano
+  try{ render(); ok = true; }
+  catch(e){ console.error("Estado guardado inválido, a recomeçar:", e); }
+  // 2) recuperação: se algo rebentou, limpa o estado partido e recomeça de limpo
+  if(!ok){
+    try{ localStorage.removeItem(KEY); }catch(_){}
+    state = defaultState();
+    commitbar.style.display = "none";
+    try{ render(); }
+    catch(e2){
+      console.error(e2);
+      app.innerHTML = `<section class="card pad"><div class="banner">Ocorreu um erro a abrir o jogo guardado.
+        <button class="btn btn-ghost btn-block" id="reset-hard" style="margin-top:12px">Recomeçar do zero</button></div></section>`;
+      const b = document.getElementById("reset-hard");
+      if(b) b.onclick = ()=>{ try{ localStorage.clear(); }catch(_){}; location.reload(); };
+    }
+  }
+  // 3) liga a sincronização em segundo plano
   bootSync();
 }
 
