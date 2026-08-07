@@ -244,13 +244,16 @@ function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e
 /* ---------------- sincronização ---------------- */
 const SYNC = { clientId: Math.random().toString(36).slice(2), tried:false, on:false, db:null, fn:null, unsub:null };
 
+function withTimeout(promise, ms){
+  return Promise.race([promise, new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")), ms))]);
+}
 async function ensureSync(){
   if(SYNC.tried) return SYNC.on;
   SYNC.tried = true;
   if(!SYNC_CONFIGURED) return false;
   try{
-    const appMod = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
-    const dbMod  = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js");
+    const appMod = await withTimeout(import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"), 8000);
+    const dbMod  = await withTimeout(import("https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"), 8000);
     const fbApp = appMod.initializeApp(firebaseConfig);
     SYNC.db = dbMod.getDatabase(fbApp);
     SYNC.fn = dbMod;
@@ -345,7 +348,7 @@ function renderJoin(){
     const ok = await ensureSync();
     if(!ok){ alert("Sincronização não configurada nesta app."); btn.disabled=false; btn.textContent="Entrar"; return; }
     try{
-      const snap = await SYNC.fn.get(SYNC.fn.ref(SYNC.db, "games/"+code));
+      const snap = await withTimeout(SYNC.fn.get(SYNC.fn.ref(SYNC.db, "games/"+code)), 8000);
       if(!snap.exists()){ alert("Não encontrei nenhum jogo com o código "+code+"."); btn.disabled=false; btn.textContent="Entrar"; return; }
       const data = snap.val();
       state.role="guest"; state.code=code; state.pending=[];
@@ -591,32 +594,44 @@ function escHtml(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<"
 function escAttr(s){ return escHtml(s); }
 
 /* ---------------- arranque ---------------- */
-(async function init(){
+function init(){
+  // 1) desenha JÁ a partir do estado local — o primeiro ecrã nunca espera pela rede
+  try{ render(); }
+  catch(e){ app.innerHTML = '<section class="card pad">Ocorreu um erro a abrir a app. Atualiza a página.</section>'; console.error(e); }
+  // 2) liga a sincronização em segundo plano
+  bootSync();
+}
+
+async function bootSync(){
+  if(!SYNC_CONFIGURED) return;
+  let ok = false;
+  try{ ok = await ensureSync(); }catch(e){ ok = false; }
+  if(!ok) return;
+
   const hashCode = (location.hash || "").replace("#","").toUpperCase().replace(/[^A-Z0-9]/g,"");
 
   // link partilhado: entrar como convidado (a menos que já sejas o anfitrião desse código)
-  if(hashCode && SYNC_CONFIGURED && !(state.phase==="game" && state.code===hashCode)){
-    const ok = await ensureSync();
-    if(ok){
-      try{
-        const snap = await SYNC.fn.get(SYNC.fn.ref(SYNC.db,"games/"+hashCode));
-        if(snap.exists()){
-          const data = snap.val();
-          state = defaultState();
-          state.role="guest"; state.code=hashCode; state.players=data.players||[]; state.target=data.target||200;
-          state.phase="game"; save(); subscribe(); return render();
-        }
-      }catch(e){ /* segue para o estado guardado */ }
-    }
+  if(hashCode && !(state.phase==="game" && state.code===hashCode)){
+    try{
+      const snap = await withTimeout(SYNC.fn.get(SYNC.fn.ref(SYNC.db,"games/"+hashCode)), 8000);
+      if(snap.exists()){
+        const data = snap.val();
+        state = defaultState();
+        state.role="guest"; state.code=hashCode;
+        state.players=data.players||[]; state.target=data.target||200;
+        state.phase="game"; save(); subscribe(); render(); return;
+      }
+    }catch(e){ console.warn(e); }
   }
 
   // retomar um jogo já em curso
-  if(state.phase==="game" && state.code && SYNC_CONFIGURED){
-    const ok = await ensureSync();
-    if(ok){ subscribe(); if(state.role==="host") pushState(); }
+  if(state.phase==="game" && state.code){
+    subscribe();
+    if(state.role==="host") pushState();
   }
-  render();
-})();
+}
+
+init();
 </script>
 </body>
 </html>
