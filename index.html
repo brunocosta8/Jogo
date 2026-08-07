@@ -247,13 +247,29 @@ const SYNC = { clientId: Math.random().toString(36).slice(2), tried:false, on:fa
 function withTimeout(promise, ms){
   return Promise.race([promise, new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")), ms))]);
 }
+async function loadFirebase(){
+  const sources = [
+    ["https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js",
+     "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"],
+    ["https://esm.run/firebase@10.12.0/app",
+     "https://esm.run/firebase@10.12.0/database"]
+  ];
+  let lastErr;
+  for(const [aUrl,bUrl] of sources){
+    try{
+      const appMod = await withTimeout(import(aUrl), 8000);
+      const dbMod  = await withTimeout(import(bUrl), 8000);
+      return { appMod, dbMod };
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr;
+}
 async function ensureSync(){
   if(SYNC.tried) return SYNC.on;
   SYNC.tried = true;
   if(!SYNC_CONFIGURED) return false;
   try{
-    const appMod = await withTimeout(import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"), 8000);
-    const dbMod  = await withTimeout(import("https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"), 8000);
+    const { appMod, dbMod } = await loadFirebase();
     const fbApp = appMod.initializeApp(firebaseConfig);
     SYNC.db = dbMod.getDatabase(fbApp);
     SYNC.fn = dbMod;
@@ -304,9 +320,14 @@ function render(){
 /* ---------------- ecrã inicial ---------------- */
 function renderHome(){
   commitbar.style.display = "none";
-  const localNote = SYNC_CONFIGURED ? "" : `
-    <div class="banner">Sincronização ainda não configurada — o jogo funciona só neste dispositivo.
-    Para vários telemóveis verem em direto, segue o <b>README</b> (Firebase).</div>`;
+  let note = "";
+  if(!SYNC_CONFIGURED){
+    note = `<div class="banner">Sincronização ainda não configurada — o jogo funciona só neste dispositivo.
+      Para vários telemóveis verem em direto, segue o <b>README</b> (Firebase).</div>`;
+  }else if(SYNC.tried && !SYNC.on){
+    note = `<div class="banner">Não consegui ligar ao servidor. Isto acontece na pré-visualização e ao abrir
+      o ficheiro direto do computador. <b>Publica no GitHub Pages e abre o link https://…</b> — aí liga sozinho.</div>`;
+  }
   const joinBtn = SYNC_CONFIGURED ? `<button class="btn btn-ghost btn-block" id="home-join">Entrar com código</button>` : "";
   app.innerHTML = `
     <section class="card pad">
@@ -316,7 +337,7 @@ function renderHome(){
         <button class="btn btn-primary btn-block" id="home-new">Novo jogo</button>
         ${joinBtn}
       </div>
-      ${localNote}
+      ${note}
     </section>`;
   document.getElementById("home-new").onclick = ()=>{ state.phase="setup-count"; save(); render(); };
   const j = document.getElementById("home-join");
@@ -606,7 +627,7 @@ async function bootSync(){
   if(!SYNC_CONFIGURED) return;
   let ok = false;
   try{ ok = await ensureSync(); }catch(e){ ok = false; }
-  if(!ok) return;
+  if(!ok){ render(); return; }
 
   const hashCode = (location.hash || "").replace("#","").toUpperCase().replace(/[^A-Z0-9]/g,"");
 
