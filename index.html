@@ -128,14 +128,19 @@
   .player.leader{border-color:rgba(255,197,61,.55);box-shadow:0 0 0 1px rgba(255,197,61,.25),var(--shadow)}
   .player .watermark{position:absolute;right:-14px;top:-30px;font-family:"Bricolage Grotesque",sans-serif;
     font-weight:800;font-size:150px;line-height:1;color:rgba(255,255,255,.03);pointer-events:none}
-  .p-id{grid-area:id;display:flex;align-items:center;gap:10px;min-width:0}
-  .p-name{font-weight:700;font-size:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .crown{color:var(--gold);font-size:16px;flex:none}
-  .p-sub{color:var(--muted-2);font-size:12px;margin-top:1px}
-  .goal-tag{display:inline-block;margin-top:4px;font-size:11px;font-weight:700;letter-spacing:.04em;
+  .p-id{grid-area:id;display:flex;align-items:center;gap:13px;min-width:0}
+  .rank{width:38px;height:38px;flex:none;border-radius:11px;display:grid;place-items:center;
+    font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:19px;line-height:1;
+    background:var(--surface-2);border:1px solid var(--line-strong);color:var(--muted);font-variant-numeric:tabular-nums}
+  .rank.rank-1{background:linear-gradient(150deg,var(--gold),#ff9d3d);border-color:transparent;color:#241300}
+  .p-name-wrap{min-width:0;display:flex;flex-direction:column;gap:2px}
+  .p-name{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:22px;line-height:1.1;
+    letter-spacing:-.01em;overflow-wrap:anywhere}
+  .p-sub{color:var(--muted-2);font-size:12px}
+  .goal-tag{display:inline-block;margin-top:2px;align-self:flex-start;font-size:11px;font-weight:700;letter-spacing:.04em;
     color:#241300;background:var(--gold);padding:2px 8px;border-radius:999px}
-  .p-total{grid-area:total;text-align:right}
-  .total-num{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:42px;line-height:1;font-variant-numeric:tabular-nums}
+  .p-total{grid-area:total;text-align:right;padding-left:8px}
+  .total-num{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:40px;line-height:1;font-variant-numeric:tabular-nums}
   .total-num.flip{animation:flip .5s ease}
   @keyframes flip{0%{transform:rotateX(0);color:var(--coral)}45%{transform:rotateX(90deg)}55%{transform:rotateX(-90deg)}100%{transform:rotateX(0)}}
   .prov{margin-top:3px;height:18px}
@@ -230,7 +235,7 @@ const KEY = "flip7-scorekeeper-v2";
 const app = document.getElementById("app");
 const commitbar = document.getElementById("commitbar");
 const menu = document.getElementById("menu");
-console.log("%cFlip 7 — build r6 (auto-recupera estado inválido)", "color:#ffc53d;font-weight:bold");
+console.log("%cFlip 7 — build r7 (ordena por pontuação; nomes maiores)", "color:#ffc53d;font-weight:bold");
 
 const intOr0 = v => { const n = parseInt(v,10); return Number.isFinite(n) ? n : 0; };
 const total = p => toArr(p && p.rounds).reduce((a,b)=>a+intOr0(b),0);
@@ -508,8 +513,11 @@ function renderGame(){
       </div>`;
   }
 
-  const cards = state.players.map((p,i)=>{
+  const order = state.players.map((_,i)=>i).sort((a,b)=> (totals[b]-totals[a]) || (a-b));
+  const cards = order.map((i,pos)=>{
+    const p = state.players[i];
     const t = totals[i];
+    const rank = pos + 1;
     const isLeader = t === max && t > 0;
     const reached = t >= state.target;
     const inputBlock = isHost ? `
@@ -520,12 +528,15 @@ function renderGame(){
         </div>` : "";
     return `
       <div class="player ${isLeader?"leader":""} ${isHost?"":"readonly"}" data-i="${i}">
-        <div class="watermark">${i+1}</div>
-        <div class="p-id"><div style="min-width:0">
-          <div class="p-name">${isLeader ? '<span class="crown">♛</span> ' : ""}${escHtml(p.name)}</div>
-          <div class="p-sub">${p.rounds.length} ${p.rounds.length===1?"ronda":"rondas"} jogadas</div>
-          ${reached ? '<span class="goal-tag">Chegou à meta</span>' : ""}
-        </div></div>
+        <div class="watermark">${rank}</div>
+        <div class="p-id">
+          <span class="rank ${rank===1 && t>0 ? "rank-1":""}">${rank}</span>
+          <div class="p-name-wrap">
+            <div class="p-name">${escHtml(p.name)}</div>
+            <div class="p-sub">${p.rounds.length} ${p.rounds.length===1?"ronda":"rondas"} jogadas</div>
+            ${reached ? '<span class="goal-tag">Chegou à meta</span>' : ""}
+          </div>
+        </div>
         <div class="p-total">
           <div class="total-num" data-total="${i}">${t}</div>
           <div class="prov" data-prov="${i}"><span class="chip"></span></div>
